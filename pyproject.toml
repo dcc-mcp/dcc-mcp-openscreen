@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling>=1.27,<1.30"]
+build-backend = "hatchling.build"
+[project]
+name = "dcc-mcp-openscreen"
+version = "0.1.0"
+description = "OpenScreen recording and demo export adapter for DCC-MCP"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.7"
+authors = [{name = "Long Hao", email = "hal.long@outlook.com"}]
+dependencies = ["dcc-mcp-core>=0.20.14,<1.0.0"]
+[project.scripts]
+dcc-mcp-openscreen = "dcc_mcp_openscreen.server:main"
+[project.entry-points."dcc_mcp.adapters"]
+openscreen = "dcc_mcp_openscreen:OpenScreenMcpServer"
+[tool.hatch.build.targets.wheel]
+packages = ["src/dcc_mcp_openscreen"]
+artifacts = ["src/dcc_mcp_openscreen/skills/**"]
+[tool.pytest.ini_options]
+pythonpath = ["src"]
