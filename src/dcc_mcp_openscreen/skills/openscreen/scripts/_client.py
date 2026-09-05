@@ -27,7 +27,7 @@ def record(args: list[str], *, duration: int, timeout: float) -> dict:
             proc.stdin.write("stop\n"); proc.stdin.flush()
         stdout, stderr=proc.communicate(timeout=max(10.0, timeout-duration))
     except subprocess.TimeoutExpired as exc:
-        proc.kill(); proc.communicate()
+        if os.name == "nt":\n            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True, check=False)\n        else:\n            proc.kill()\n        proc.communicate()
         raise RuntimeError("OpenScreen recording did not stop after a cooperative stop request") from exc
     return _finish(proc.returncode, stdout, stderr)
 
@@ -44,3 +44,4 @@ def path_arg(value: str) -> str:
     path=Path(value).expanduser().resolve()
     if len(str(path))>4096: raise ValueError("path too long")
     return str(path)
+
