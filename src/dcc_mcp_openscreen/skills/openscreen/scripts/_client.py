@@ -8,7 +8,7 @@ def executable() -> str:
     return value
 
 def run(args: list[str], *, timeout: float = 900.0) -> dict:
-    proc=subprocess.run([executable(), *args, "--json"], capture_output=True, text=True, timeout=timeout, check=False)
+    try:\n        proc=subprocess.run([executable(), *args, "--json"], capture_output=True, text=True, timeout=timeout, check=False)\n    except subprocess.TimeoutExpired as exc:\n        raise RuntimeError(f"OpenScreen CLI timed out after {timeout:.0f}s; verify a headless-capable build") from exc
     events=[]
     for line in proc.stdout.splitlines():
         try: events.append(json.loads(line))
@@ -22,3 +22,4 @@ def path_arg(value: str) -> str:
     p=Path(value).expanduser().resolve()
     if len(str(p))>4096: raise ValueError("path too long")
     return str(p)
+
