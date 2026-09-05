@@ -15,3 +15,6 @@ def main(argv=None):
     if hasattr(signal,"SIGTERM"): signal.signal(signal.SIGTERM, lambda *_: stopped.set())
     try: stopped.wait()
     finally: server.stop()
+
+if __name__ == '__main__':
+    main()
