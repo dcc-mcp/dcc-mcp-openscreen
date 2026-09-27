@@ -3,7 +3,7 @@ requires = ["hatchling>=1.27,<1.30"]
 build-backend = "hatchling.build"
 [project]
 name = "dcc-mcp-openscreen"
-version = "0.1.0"
+version = "0.1.1"
 description = "OpenScreen recording and demo export adapter for DCC-MCP"
 readme = "README.md"
 license = {text = "MIT"}
