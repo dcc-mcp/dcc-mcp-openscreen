@@ -39,6 +39,14 @@ def run(args: list[str], *, timeout: float = 900.0) -> dict:
     return _finish(proc.returncode, proc.stdout, proc.stderr)
 
 
+def _close_stdin(proc: subprocess.Popen) -> None:
+    try:
+        if proc.stdin:
+            proc.stdin.close()
+    except (BrokenPipeError, OSError):
+        pass
+
+
 def record(args: list[str], *, duration: int, timeout: float) -> dict:
     proc = subprocess.Popen(
         [executable(), "record", *args, "--json"],
@@ -51,8 +59,13 @@ def record(args: list[str], *, duration: int, timeout: float) -> dict:
     try:
         time.sleep(duration)
         if proc.poll() is None and proc.stdin:
-            proc.stdin.write("stop\n")
-            proc.stdin.flush()
+            try:
+                proc.stdin.write("stop\n")
+                proc.stdin.flush()
+            except (BrokenPipeError, OSError):
+                # The child closed stdin on its own; it is finishing already, so
+                # fall through and collect the result it emits.
+                _close_stdin(proc)
         stdout, stderr = proc.communicate(timeout=max(10.0, timeout - duration))
     except subprocess.TimeoutExpired as exc:
         cleanup_error = None
@@ -66,15 +79,30 @@ def record(args: list[str], *, duration: int, timeout: float) -> dict:
                     timeout=5,
                     creationflags=subprocess.CREATE_NO_WINDOW,
                 )
-                if result.returncode and proc.poll() is None:
-                    cleanup_error = result.stderr[-2000:]
+                if result.returncode != 0:
+                    # Separate the failure *status* from the diagnostic *text*:
+                    # a nonzero taskkill with empty stderr must still count as a
+                    # cleanup failure, otherwise the kill fallback is skipped.
+                    cleanup_error = (
+                        result.stderr[-2000:].strip()
+                        or f"taskkill exited with code {result.returncode}"
+                    )
             except (OSError, subprocess.TimeoutExpired) as cleanup_exc:
-                cleanup_error = str(cleanup_exc)
+                cleanup_error = str(cleanup_exc) or type(cleanup_exc).__name__
             if cleanup_error and proc.poll() is None:
                 proc.kill()
         else:
             proc.kill()
-        proc.communicate(timeout=5)
+        try:
+            stdout, stderr = proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            # Grandchildren can inherit the output pipes and outlive the root.
+            # Never let the reaping step mask the reason we got here.
+            stdout, stderr = "", ""
+            if cleanup_error is None:
+                cleanup_error = (
+                    "process tree still holds the output pipes after termination"
+                )
         if cleanup_error:
             raise RuntimeError(
                 "OpenScreen process-tree cleanup failed: " + cleanup_error

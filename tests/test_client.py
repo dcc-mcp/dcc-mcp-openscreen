@@ -67,7 +67,7 @@ def test_record_sends_cooperative_stop_without_allocating_console(client, monkey
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows process cleanup contract")
-@pytest.mark.parametrize("failure", ["nonzero", "timeout", "missing"])
+@pytest.mark.parametrize("failure", ["nonzero", "empty", "timeout", "missing"])
 def test_record_cleanup_failure_still_reaps_owned_root(client, monkeypatch, failure):
     real_spawn = subprocess.Popen
     children = []
@@ -95,6 +95,10 @@ def test_record_cleanup_failure_still_reaps_owned_root(client, monkeypatch, fail
             raise subprocess.TimeoutExpired(argv, 5)
         if failure == "missing":
             raise FileNotFoundError("taskkill unavailable")
+        if failure == "empty":
+            # Nonzero exit with EMPTY stderr: the diagnostic text is falsy, so the
+            # failure status must be tracked separately from it.
+            return subprocess.CompletedProcess(argv, 1, "", "")
         return subprocess.CompletedProcess(argv, 1, "", "taskkill refused")
 
     monkeypatch.setattr(
@@ -105,6 +109,118 @@ def test_record_cleanup_failure_still_reaps_owned_root(client, monkeypatch, fail
         with pytest.raises(RuntimeError, match="process-tree cleanup failed"):
             client.record([], duration=0, timeout=10)
         assert children[0].poll() is not None
+    finally:
+        for process in children:
+            if process.poll() is None:
+                process.kill()
+                process.wait(timeout=5)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows process cleanup contract")
+def test_record_cleanup_reports_error_when_grandchild_holds_pipes(client, monkeypatch):
+    """The root dies but an inherited grandchild keeps the pipes open.
+
+    ``proc.kill()`` on Windows only terminates the root, so the follow-up
+    ``communicate()`` would raise an unhandled ``TimeoutExpired``. The cleanup
+    path must convert that into a RuntimeError instead.
+    """
+
+    real_spawn = subprocess.Popen
+    children = []
+    grandchild = (
+        "import subprocess,sys,time;"
+        "subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)'],"
+        "stdout=sys.stdout,stderr=sys.stderr);"
+        "time.sleep(60)"
+    )
+
+    class Child:
+        def __init__(self, **kwargs):
+            self.process = real_spawn([sys.executable, "-c", grandchild], **kwargs)
+            children.append(self.process)
+            self.first_wait = True
+
+        def __getattr__(self, name):
+            return getattr(self.process, name)
+
+        def communicate(self, timeout):
+            if self.first_wait:
+                self.first_wait = False
+                raise subprocess.TimeoutExpired("record", timeout)
+            # A surviving grandchild holds the pipe, so the reap also times out.
+            raise subprocess.TimeoutExpired("record", timeout)
+
+    def cleanup(argv, **kwargs):
+        assert argv[0] == "taskkill"
+        return subprocess.CompletedProcess(argv, 1, "", "taskkill refused")
+
+    monkeypatch.setattr(
+        client.subprocess, "Popen", lambda argv, **kwargs: Child(**kwargs)
+    )
+    monkeypatch.setattr(client.subprocess, "run", cleanup)
+    try:
+        with pytest.raises(RuntimeError, match="process-tree cleanup failed"):
+            client.record([], duration=0, timeout=10)
+    finally:
+        for process in children:
+            if process.poll() is None:
+                process.kill()
+                process.wait(timeout=5)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows pipe contract")
+def test_record_keeps_successful_result_when_stdin_breaks(client, monkeypatch):
+    """A child that closes stdin early must not lose its successful payload.
+
+    ``write()``/``flush()`` on a closed pipe raise ``BrokenPipeError``, which
+    previously escaped and discarded an already-successful recording.
+    """
+
+    real_spawn = subprocess.Popen
+    children = []
+    code = (
+        "import sys,json,time;"
+        "sys.stdin.close();"
+        "print(json.dumps(dict(event='done',success=True,frames=123)),flush=True);"
+        "time.sleep(3)"
+    )
+
+    class BrokenStdin:
+        def write(self, data):
+            raise BrokenPipeError(32, "The pipe is being closed")
+
+        def flush(self):
+            raise BrokenPipeError(32, "The pipe is being closed")
+
+        def close(self):
+            pass
+
+    class Child:
+        def __init__(self, **kwargs):
+            self.process = real_spawn([sys.executable, "-c", code], **kwargs)
+            children.append(self.process)
+            self._stdin = BrokenStdin()
+
+        def __getattr__(self, name):
+            return getattr(self.process, name)
+
+        @property
+        def stdin(self):
+            return self._stdin
+
+        @stdin.setter
+        def stdin(self, value):
+            self._stdin = value
+
+    monkeypatch.setattr(
+        client.subprocess, "Popen", lambda argv, **kwargs: Child(**kwargs)
+    )
+    try:
+        assert client.record([], duration=0, timeout=10) == {
+            "event": "done",
+            "success": True,
+            "frames": 123,
+        }
     finally:
         for process in children:
             if process.poll() is None:
