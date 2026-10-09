@@ -1,9 +1,15 @@
 """Standalone OpenScreen MCP adapter."""
 from __future__ import annotations
-import argparse, os, signal, threading
+
+import argparse
+import signal
+import threading
 from pathlib import Path
+
 from dcc_mcp_core import DccServerOptions
 from dcc_mcp_core.server_base import DccServerBase
+
+
 class OpenScreenMcpServer(DccServerBase):
     def __init__(self, *, port: int | None = None):
         options = DccServerOptions.from_env("openscreen", Path(__file__).parent / "skills", port=port, server_name="dcc-mcp-openscreen", instance_type="standalone", adapter_version="0.1.0", standalone_main_thread=False)

@@ -1,5 +1,8 @@
 from dcc_mcp_core.skill import skill_entry, skill_success
-from ._client import record, path_arg
+
+from ._client import path_arg, record
+
+
 @skill_entry
 def main(duration=30, window=None, display=0, project=None, mic=False, system_audio=False, **_):
     if not isinstance(duration,int) or duration<1 or duration>3600: raise ValueError("duration must be 1..3600 seconds")
