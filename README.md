@@ -11,7 +11,7 @@ The adapter exposes only typed, bounded CLI operations. Set `DCC_MCP_OPENSCREEN_
 **dcc-mcp-openscreen** — OpenScreen adapter for DCC-MCP — capture discovery, screen
 recording and video export workflows through typed CLI operations.
 
-It is one of **47 host adapters** in the DCC-MCP catalog. Every adapter speaks the same
+It is one of **48 host adapters** in the DCC-MCP catalog. Every adapter speaks the same
 MCP protocol and builds on the same core runtime contract; each one exposes the tools
 its own host needs on top of that.
 
