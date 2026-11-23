@@ -6,7 +6,7 @@ name = "dcc-mcp-openscreen"
 version = "0.1.2"
 description = "OpenScreen recording and demo export adapter for DCC-MCP"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 requires-python = ">=3.7"
 authors = [{name = "Long Hao", email = "hal.long@outlook.com"}]
 dependencies = ["dcc-mcp-core>=0.20.14,<1.0.0"]

@@ -35,4 +35,4 @@ Tools: `openscreen__sources`, `openscreen__record`, and `openscreen__export`.
 
 ## License
 
-MIT
+Apache-2.0 — see [LICENSE](LICENSE), [NOTICE](NOTICE), and [TRADEMARKS.md](TRADEMARKS.md)
