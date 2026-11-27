@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3](https://github.com/dcc-mcp/dcc-mcp-openscreen/compare/v0.1.2...v0.1.3) (2026-11-27)
+
+
+### Documentation
+
+* refresh the generated DCC-MCP host matrix pointer ([9f418f9](https://github.com/dcc-mcp/dcc-mcp-openscreen/commit/9f418f95670132fafa1d928ae42d8359b2c5a91f))
+* refresh the generated DCC-MCP host matrix pointer ([92cd4a7](https://github.com/dcc-mcp/dcc-mcp-openscreen/commit/92cd4a70fe8592a5dddbd40e41bf0164d71d732b))
+
 ## [0.1.2](https://github.com/dcc-mcp/dcc-mcp-openscreen/compare/v0.1.1...v0.1.2) (2026-10-10)
 
 
